@@ -5,30 +5,64 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Water Receipt</title>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       min-height: 100vh;
       background-color: #0a0a0a;
       color: #e8e4dc;
-      font-family: 'Courier New', Courier, monospace;
+      font-family: 'Space Mono', 'Courier New', monospace;
       display: flex;
       flex-direction: column;
       align-items: center;
       padding: 20px;
       position: relative;
       overflow-x: hidden;
+      transition: background-color 2s;
     }
-    .bg-stain {
+    .crack-overlay {
       position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-      background: radial-gradient(ellipse at 50% 80%, rgba(56,132,163,0.04) 0%, transparent 60%);
+      pointer-events: none; z-index: 100;
+      opacity: 0; transition: opacity 1s;
+    }
+    .crack-line {
+      position: absolute;
+      background: rgba(80,50,30,0.08);
+      transform-origin: center;
+    }
+    .dust-particle {
+      position: fixed;
+      width: 2px; height: 2px;
+      background: rgba(160,130,90,0.3);
+      border-radius: 50%;
       pointer-events: none;
+      z-index: 99;
+    }
+    .dry-edge {
+      position: fixed; pointer-events: none; z-index: 98;
+      opacity: 0; transition: opacity 2s;
+    }
+    .dry-edge-top {
+      top: 0; left: 0; right: 0; height: 60px;
+      background: linear-gradient(180deg, rgba(80,55,30,0.15) 0%, transparent 100%);
+    }
+    .dry-edge-bottom {
+      bottom: 0; left: 0; right: 0; height: 60px;
+      background: linear-gradient(0deg, rgba(80,55,30,0.15) 0%, transparent 100%);
+    }
+    .dry-edge-left {
+      top: 0; bottom: 0; left: 0; width: 40px;
+      background: linear-gradient(90deg, rgba(80,55,30,0.12) 0%, transparent 100%);
+    }
+    .dry-edge-right {
+      top: 0; bottom: 0; right: 0; width: 40px;
+      background: linear-gradient(270deg, rgba(80,55,30,0.12) 0%, transparent 100%);
     }
     .title { text-align: center; margin-bottom: 30px; position: relative; z-index: 1; }
     .title h1 {
-      font-size: 13px; letter-spacing: 6px; text-transform: uppercase;
-      color: #666; font-weight: 400;
+      font-size: 11px; letter-spacing: 6px; text-transform: uppercase;
+      color: #555; font-weight: 400;
     }
-    .title .sub { font-size: 11px; color: #444; margin-top: 8px; letter-spacing: 2px; }
     .main {
       display: flex; gap: 40px; max-width: 900px; width: 100%;
       justify-content: center; align-items: flex-start; flex-wrap: wrap;
@@ -39,18 +73,18 @@
       min-width: 200px; position: sticky; top: 20px;
     }
     .glass-label {
-      font-size: 10px; letter-spacing: 3px; color: #555;
+      font-size: 9px; letter-spacing: 3px; color: #444;
       margin-bottom: 16px; text-transform: uppercase;
     }
     .glass-container { position: relative; width: 120px; height: 220px; }
     .glass-outline {
       position: absolute; bottom: 0; left: 10px; right: 10px; height: 200px;
-      border: 1px solid rgba(255,255,255,0.15); border-top: none;
+      border: 1px solid rgba(255,255,255,0.12); border-top: none;
       border-radius: 0 0 4px 4px; overflow: hidden;
     }
     .water-fill {
       position: absolute; bottom: 0; left: 0; right: 0;
-      transition: height 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: height 1.2s cubic-bezier(0.4, 0, 0.2, 1), background 1.5s ease;
     }
     .water-surface {
       position: absolute; top: 0; left: 0; right: 0; height: 3px;
@@ -59,7 +93,7 @@
     }
     .measure-line {
       position: absolute; left: 0; right: 0;
-      border-top: 1px dashed rgba(255,255,255,0.06);
+      border-top: 1px dashed rgba(255,255,255,0.05);
     }
     .drip {
       position: absolute; bottom: -30px; left: 50%; transform: translateX(-50%);
@@ -67,107 +101,120 @@
       background-color: rgba(56,163,193,0.5);
       animation: drip 1s ease-in forwards;
     }
-    .water-amount {
-      margin-top: 16px; text-align: center;
-    }
+    .water-amount { margin-top: 16px; text-align: center; }
     .water-amount .num {
-      font-size: 28px; font-weight: bold; color: rgba(56,163,193,0.8); line-height: 1;
+      font-size: 28px; font-weight: bold;
+      color: rgba(56,163,193,0.8); line-height: 1; transition: color 1s;
     }
-    .water-amount .num.empty { color: #c44; }
-    .water-amount .unit { font-size: 12px; color: #555; }
-    .water-amount .label { font-size: 9px; color: #444; margin-top: 4px; }
+    .water-amount .unit { font-size: 12px; color: #444; }
+    .water-amount .label { font-size: 8px; color: #333; margin-top: 4px; letter-spacing: 2px; }
+    .balance-info {
+      margin-top: 20px; text-align: center;
+      font-size: 9px; color: #444; line-height: 2;
+    }
     .empty-msg {
-      margin-top: 20px; padding: 12px 16px;
-      border: 1px solid rgba(196,68,68,0.3); color: #c44;
-      font-size: 10px; letter-spacing: 2px; text-align: center;
-      text-transform: uppercase; line-height: 1.6;
+      margin-top: 20px; padding: 16px 20px;
+      border: 1px solid rgba(130,110,60,0.2); color: #884;
+      font-size: 9px; letter-spacing: 1px; text-align: center;
+      text-transform: uppercase; line-height: 1.8;
+      background: rgba(80,50,30,0.05);
     }
-    .empty-msg .sub { color: #666; font-size: 9px; }
-    .context-stats {
-      margin-top: 24px; font-size: 9px; color: #444;
-      text-align: center; line-height: 2; max-width: 180px;
-    }
-    .receipt-section { flex: 1; max-width: 380px; min-width: 300px; }
+    .empty-msg .sub { color: #555; font-size: 8px; margin-top: 4px; display: block; }
+    .receipt-section { flex: 1; max-width: 400px; min-width: 300px; }
     .receipt-paper {
-      background-color: #f5f0e8; color: #1a1a1a;
-      padding: 24px 20px; font-family: 'Courier New', monospace;
-      font-size: 11px; min-height: 300px; position: relative;
+      background-color: #f2ece0; color: #1a1a1a;
+      padding: 28px 24px; font-family: 'Space Mono', monospace;
+      font-size: 10px; min-height: 300px; position: relative;
       box-shadow: 0 4px 30px rgba(0,0,0,0.3);
+      border-top: 3px solid #8a7a5a;
     }
-    .receipt-header { text-align: center; margin-bottom: 16px; }
-    .receipt-header .title-text { font-size: 14px; font-weight: bold; letter-spacing: 3px; }
-    .receipt-header .subtitle { font-size: 9px; color: #888; margin-top: 4px; }
-    .receipt-header .divider { border-bottom: 1px dashed #ccc; margin: 12px 0; }
-    .receipt-header .meta { font-size: 9px; color: #999; }
+    .receipt-header { text-align: center; margin-bottom: 20px; }
+    .receipt-header .authority {
+      font-size: 8px; letter-spacing: 4px; color: #999;
+      text-transform: uppercase; margin-bottom: 4px;
+    }
+    .receipt-header .title-text {
+      font-size: 13px; font-weight: bold; letter-spacing: 2px; color: #333;
+    }
+    .receipt-header .subtitle {
+      font-size: 8px; color: #aaa; margin-top: 6px; letter-spacing: 1px;
+    }
+    .receipt-header .divider { border: none; border-bottom: 1px solid #ccc; margin: 14px 0; }
+    .receipt-header .account-row {
+      display: flex; justify-content: space-between;
+      font-size: 8px; color: #888; margin-top: 2px;
+    }
     .col-headers {
-      display: flex; justify-content: space-between; font-size: 9px;
-      color: #999; border-bottom: 1px solid #ddd;
+      display: flex; justify-content: space-between; font-size: 8px;
+      color: #aaa; border-bottom: 1px solid #ddd;
       padding-bottom: 4px; margin-bottom: 8px;
+      text-transform: uppercase; letter-spacing: 1px;
     }
     .receipt-item {
-      margin-bottom: 10px; padding-bottom: 10px;
+      margin-bottom: 8px; padding-bottom: 8px;
       border-bottom: 1px dotted #ddd; animation: fadeIn 0.5s ease-in;
     }
     .receipt-item .row { display: flex; justify-content: space-between; align-items: flex-start; }
-    .receipt-item .prompt-text { font-size: 10px; color: #333; }
-    .receipt-item .char-info { font-size: 8px; color: #aaa; margin-top: 2px; }
-    .receipt-item .water-val { width: 60px; text-align: right; font-size: 11px; font-weight: bold; color: #1a6b7a; }
-    .receipt-item .energy-val { width: 50px; text-align: right; font-size: 10px; color: #666; }
+    .receipt-item .prompt-text { font-size: 9px; color: #444; }
+    .receipt-item .char-info { font-size: 7px; color: #bbb; margin-top: 2px; }
+    .receipt-item .water-val { width: 60px; text-align: right; font-size: 10px; font-weight: bold; color: #6a5a3a; }
+    .receipt-item .energy-val { width: 50px; text-align: right; font-size: 9px; color: #888; }
     .empty-state {
-      text-align: center; color: #bbb; font-size: 10px;
-      padding: 40px 20px; line-height: 2;
+      text-align: center; color: #bbb; font-size: 9px;
+      padding: 40px 20px; line-height: 2.2;
     }
     .totals { margin-top: 12px; }
     .totals .total-row {
-      border-top: 2px solid #333; padding-top: 8px;
+      border-top: 2px solid #444; padding-top: 8px;
       display: flex; justify-content: space-between;
-      font-weight: bold; font-size: 12px;
+      font-weight: bold; font-size: 11px;
     }
-    .totals .total-water { color: #1a6b7a; }
+    .totals .total-water { color: #6a5a3a; }
     .totals .sub-row {
       display: flex; justify-content: space-between;
-      font-size: 10px; color: #888; margin-top: 4px;
+      font-size: 9px; color: #999; margin-top: 3px;
     }
     .receipt-footer {
-      margin-top: 20px; padding-top: 12px; border-top: 1px dashed #ccc;
-      text-align: center; font-size: 8px; color: #aaa; line-height: 1.8;
+      margin-top: 20px; padding-top: 14px; border-top: 1px dashed #ccc;
+      text-align: center; font-size: 7px; color: #bbb; line-height: 1.8;
     }
-    .receipt-footer .punchline { margin-top: 8px; font-size: 9px; color: #999; }
-    .input-area { margin-top: 20px; }
+    .receipt-footer .punchline {
+      margin-top: 10px; font-size: 8px; color: #999; font-style: italic;
+    }
+    .input-area { margin-top: 20px; position: relative; }
     .input-area textarea {
-      width: 100%; min-height: 60px; background-color: #111;
-      border: 1px solid #333; color: #e8e4dc;
-      font-family: 'Courier New', monospace; font-size: 12px;
-      padding: 12px; resize: vertical; outline: none;
+      width: 100%; min-height: 56px; background-color: #111;
+      border: 1px solid #2a2a2a; color: #e8e4dc;
+      font-family: 'Space Mono', monospace; font-size: 11px;
+      padding: 12px; resize: none; outline: none;
+      transition: opacity 0.5s, border-color 0.3s;
     }
-    .input-area textarea:focus { border-color: rgba(56,163,193,0.3); }
-    .input-area textarea::placeholder { color: #333; }
+    .input-area textarea:focus { border-color: rgba(56,163,193,0.2); }
+    .input-area textarea::placeholder { color: #2a2a2a; }
+    .input-area textarea:disabled { opacity: 0.3; cursor: not-allowed; }
     .input-controls {
       display: flex; justify-content: space-between;
       align-items: center; margin-top: 8px;
     }
-    .input-controls .estimate { font-size: 9px; color: #444; }
+    .input-controls .estimate { font-size: 8px; color: #333; }
     .input-controls button {
-      background-color: transparent; border: 1px solid #444;
-      color: #e8e4dc; font-family: 'Courier New', monospace;
-      font-size: 10px; letter-spacing: 2px; padding: 8px 20px;
-      cursor: pointer; text-transform: uppercase; transition: all 0.2s;
+      background-color: transparent; border: 1px solid #333;
+      color: #888; font-family: 'Space Mono', monospace;
+      font-size: 9px; letter-spacing: 2px; padding: 8px 20px;
+      cursor: pointer; text-transform: uppercase; transition: all 0.3s;
     }
     .input-controls button:hover:not(:disabled) {
-      border-color: rgba(56,163,193,0.5); color: rgba(56,163,193,0.8);
+      border-color: rgba(56,163,193,0.3); color: rgba(56,163,193,0.6);
     }
-    .input-controls button:disabled { color: #333; cursor: default; }
-    .bottom-context {
-      margin-top: 60px; text-align: center; max-width: 500px;
-      position: relative; z-index: 1;
+    .input-controls button:disabled { color: #222; border-color: #1a1a1a; cursor: not-allowed; }
+    .locked-overlay {
+      display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(10,10,10,0.85); z-index: 10;
+      flex-direction: column; align-items: center; justify-content: center;
+      font-size: 9px; color: #664; letter-spacing: 2px;
+      text-transform: uppercase; text-align: center; line-height: 2.2;
     }
-    .bottom-context .quote { margin-bottom: 12px; color: #555; font-size: 10px; line-height: 1.8; }
-    .bottom-context .facts { font-size: 9px; color: #333; line-height: 2; letter-spacing: 1px; }
-    .bottom-context .highlight { margin-top: 12px; color: #444; }
-    .bottom-context .credit {
-      margin-top: 30px; font-size: 8px; color: #2a2a2a;
-      letter-spacing: 3px; text-transform: uppercase;
-    }
+    .locked-overlay.active { display: flex; }
     @keyframes shimmer {
       0%, 100% { opacity: 0.3; transform: translateX(-10px); }
       50% { opacity: 0.8; transform: translateX(10px); }
@@ -177,7 +224,7 @@
       100% { transform: translateX(-50%) translateY(40px); opacity: 0; }
     }
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-5px); }
+      from { opacity: 0; transform: translateY(-4px); }
       to { opacity: 1; transform: translateY(0); }
     }
     @media (max-width: 700px) {
@@ -188,22 +235,20 @@
   </style>
 </head>
 <body>
-  <div class="bg-stain"></div>
+  <div class="dry-edge dry-edge-top" id="dryTop"></div>
+  <div class="dry-edge dry-edge-bottom" id="dryBottom"></div>
+  <div class="dry-edge dry-edge-left" id="dryLeft"></div>
+  <div class="dry-edge dry-edge-right" id="dryRight"></div>
+  <div class="crack-overlay" id="crackOverlay"></div>
 
-  <div class="title">
-    <h1>Every prompt has a price</h1>
-    <div class="sub">TYPE A PROMPT. WATCH THE WATER.</div>
-  </div>
+  <div class="title"><h1>Water Receipt</h1></div>
 
   <div class="main">
-    <!-- Glass -->
     <div class="glass-section">
-      <div class="glass-label">250ml of water</div>
+      <div class="glass-label">Account Balance</div>
       <div class="glass-container">
         <div class="glass-outline">
-          <div class="water-fill" id="waterFill">
-            <div class="water-surface"></div>
-          </div>
+          <div class="water-fill" id="waterFill"><div class="water-surface"></div></div>
           <div class="measure-line" style="bottom:25%"></div>
           <div class="measure-line" style="bottom:50%"></div>
           <div class="measure-line" style="bottom:75%"></div>
@@ -214,228 +259,181 @@
         <div class="num" id="remainNum">250<span class="unit">ml</span></div>
         <div class="label">REMAINING</div>
       </div>
-      <div class="empty-msg" id="emptyMsg" style="display:none">
-        Glass empty.<br>Your prompts drank it all.<br>
-        <span class="sub" id="emptyCount"></span>
-      </div>
-      <div class="context-stats" id="contextStats" style="display:none">
+      <div class="balance-info" id="contextStats" style="display:none">
         <div id="statWater"></div>
         <div id="statEnergy"></div>
         <div id="statCO2"></div>
       </div>
+      <div class="empty-msg" id="emptyMsg" style="display:none">
+        Account depleted.<br>
+        <span class="sub" id="emptyCount"></span>
+      </div>
     </div>
 
-    <!-- Receipt -->
     <div class="receipt-section">
       <div class="receipt-paper">
         <div class="receipt-header">
-          <div class="title-text">WATER RECEIPT</div>
-          <div class="subtitle">AI ENVIRONMENTAL COST TRACKER</div>
+          <div class="authority">Municipal Water Authority</div>
+          <div class="title-text">USAGE STATEMENT</div>
+          <div class="subtitle">AI Consumption Billing · Cycle 2040-03</div>
           <div class="divider"></div>
-          <div class="meta" id="receiptDate"></div>
-          <div class="meta" id="receiptSession"></div>
+          <div class="account-row"><span>Account holder</span><span>Resident</span></div>
+          <div class="account-row"><span>Statement date</span><span id="receiptDate"></span></div>
+          <div class="account-row"><span>Meter ID</span><span id="receiptSession"></span></div>
+          <div class="account-row"><span>Allocation</span><span>250ml / session</span></div>
         </div>
         <div class="col-headers" id="colHeaders" style="display:none">
-          <span style="flex:1">PROMPT</span>
-          <span style="width:60px;text-align:right">WATER</span>
-          <span style="width:50px;text-align:right">ENERGY</span>
+          <span style="flex:1">Query</span>
+          <span style="width:60px;text-align:right">H₂O</span>
+          <span style="width:50px;text-align:right">kWh</span>
         </div>
         <div id="receiptItems">
-          <div class="empty-state">No prompts yet.<br>Type below to begin.<br><span style="font-size:16px">↓</span></div>
+          <div class="empty-state">No queries recorded this cycle.<br>Begin typing to use your allocation.</div>
         </div>
         <div class="totals" id="totalsSection" style="display:none">
           <div class="total-row">
-            <span id="totalLabel">TOTAL (0 prompts)</span>
+            <span id="totalLabel">TOTAL (0 queries)</span>
             <span class="total-water" id="totalWater">0.0ml</span>
           </div>
-          <div class="sub-row">
-            <span>ELECTRICITY</span>
-            <span id="totalEnergy">0.00 Wh</span>
-          </div>
-          <div class="sub-row">
-            <span>CO₂ EMISSIONS</span>
-            <span id="totalCO2">0.00g</span>
+          <div class="sub-row"><span>Electricity</span><span id="totalEnergy">0.00 Wh</span></div>
+          <div class="sub-row"><span>CO₂</span><span id="totalCO2">0.00g</span></div>
+          <div class="sub-row" style="margin-top:6px;border-top:1px dotted #ccc;padding-top:6px;">
+            <span>Remaining allocation</span><span id="totalRemaining">250.0ml</span>
           </div>
         </div>
+        <div class="receipt-footer">
+          <div>Municipal Water Authority · District 7 · Est. 2038</div>
+          <div>AI usage billed per query at current conservation rates</div>
+          <div class="punchline">Conserve. Every prompt counts.</div>
+        </div>
       </div>
-
-      <!-- Input -->
-      <div class="input-area">
+      <div class="input-area" style="position:relative">
+        <div style="font-size:8px;letter-spacing:2px;color:#333;text-transform:uppercase;margin-bottom:6px">Ask AI anything.</div>
         <textarea id="promptInput" placeholder=""></textarea>
         <div class="input-controls">
           <span class="estimate" id="estimate"></span>
-          <button id="sendBtn" disabled>Send → Pay Water</button>
+          <button id="sendBtn" disabled>Send</button>
+        </div>
+        <div class="locked-overlay" id="lockedOverlay">
+          Allocation exhausted.<br>
+          Contact your water district<br>
+          to purchase additional credits.
         </div>
       </div>
-    </div>
-  </div>
-
-  <!-- Bottom -->
-  <div class="bottom-context">
-    <div class="quote">
-      "Every time you type a question into Gen AI,<br>
-      a glass of clean drinking water is silently<br>
-      poured into the desert sand."
     </div>
   </div>
 
   <script>
-    const WATER_PER_CHAR = 0.15;
-    const ENERGY_PER_CHAR = 0.005;
-    const CO2_PER_CHAR = 0.001;
-    const GLASS_ML = 250;
+    const WATER_PER_CHAR=0.15, ENERGY_PER_CHAR=0.005, CO2_PER_CHAR=0.001, GLASS_ML=250;
+    const PLACEHOLDERS=["Write me a poem about love...","Explain quantum physics simply...","Generate a business plan for...","Create a recipe for dinner...","Help me write an essay about...","What is the meaning of life...","Summarize this article for me...","Draft an email to my boss..."];
+    let totalWater=0,totalEnergy=0,totalCO2=0,promptCount=0,waterLevel=100;
+    let isProcessing=false,isLocked=false,phIdx=0,chIdx=0,lastCrackLevel=100;
+    const $=id=>document.getElementById(id);
+    const input=$("promptInput"),sendBtn=$("sendBtn");
+    $("receiptDate").textContent="2040-03-26";
+    $("receiptSession").textContent="MWA-"+String(Date.now()).slice(-8);
 
-    const PLACEHOLDERS = [
-      "Write me a poem about love...",
-      "Teach me how to use Arduino as a beginner...",
-      "Generate a travel plan for...",
-      "Create a recipe for a healthy dinner...",
-      "Help me write an essay about...",
-      "What is the meaning of life...",
-      "Summarize this article for me...",
-      "Draft an email to my professor...",
-    ];
-
-    let totalWater = 0, totalEnergy = 0, totalCO2 = 0, promptCount = 0;
-    let waterLevel = 100;
-    let isProcessing = false;
-    let phIdx = 0, chIdx = 0, items = [];
-
-    const $ = (id) => document.getElementById(id);
-    const input = $("promptInput");
-    const sendBtn = $("sendBtn");
-
-    // Init receipt date
-    const now = new Date();
-    $("receiptDate").textContent = now.toLocaleDateString() + " · " + now.toLocaleTimeString();
-    $("receiptSession").textContent = "SESSION #" + String(Date.now()).slice(-6);
-
-    // Placeholder typing
-    function typePlaceholder() {
-      const prompt = PLACEHOLDERS[phIdx];
-      if (chIdx <= prompt.length) {
-        input.placeholder = prompt.slice(0, chIdx) + "│";
-        chIdx++;
-        setTimeout(typePlaceholder, 60);
-      } else {
-        setTimeout(() => {
-          chIdx = 0;
-          phIdx = (phIdx + 1) % PLACEHOLDERS.length;
-          typePlaceholder();
-        }, 2500);
-      }
+    function typePlaceholder(){
+      if(isLocked){input.placeholder="";return}
+      const p=PLACEHOLDERS[phIdx];
+      if(chIdx<=p.length){input.placeholder=p.slice(0,chIdx)+"│";chIdx++;setTimeout(typePlaceholder,60)}
+      else{setTimeout(()=>{chIdx=0;phIdx=(phIdx+1)%PLACEHOLDERS.length;typePlaceholder()},2500)}
     }
     typePlaceholder();
 
-    // Input events
-    input.addEventListener("input", () => {
-      const len = input.value.length;
-      $("estimate").textContent = len > 0 ? `≈${(len * WATER_PER_CHAR * 5).toFixed(1)}ml estimated` : "";
-      sendBtn.disabled = !input.value.trim() || isProcessing;
+    input.addEventListener("input",()=>{
+      if(isLocked)return;
+      const l=input.value.length;
+      $("estimate").textContent=l>0?`≈${(l*WATER_PER_CHAR*5).toFixed(1)}ml`:"";
+      sendBtn.disabled=!input.value.trim()||isProcessing;
     });
+    input.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();submitPrompt()}});
+    sendBtn.addEventListener("click",submitPrompt);
 
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitPrompt(); }
-    });
-
-    sendBtn.addEventListener("click", submitPrompt);
-
-    function submitPrompt() {
-      const text = input.value.trim();
-      if (!text || isProcessing) return;
-      isProcessing = true;
-      sendBtn.disabled = true;
-      sendBtn.textContent = "Processing...";
-
-      const chars = text.length;
-      const mult = 3 + Math.random() * 4;
-      const responseChars = Math.floor(chars * mult);
-      const w = (chars + responseChars) * WATER_PER_CHAR;
-      const e = (chars + responseChars) * ENERGY_PER_CHAR;
-      const c = (chars + responseChars) * CO2_PER_CHAR;
-
-      // Drip animation
-      const drip = $("dripEl");
-      drip.style.display = "block";
-      drip.style.animation = "none";
-      drip.offsetHeight;
-      drip.style.animation = "drip 1s ease-in forwards";
-
-      setTimeout(() => {
-        drip.style.display = "none";
-
-        promptCount++;
-        totalWater += w;
-        totalEnergy += e;
-        totalCO2 += c;
-        waterLevel = Math.max(0, 100 - (totalWater / GLASS_ML) * 100);
-
-        // Update glass
-        const fill = $("waterFill");
-        fill.style.height = waterLevel + "%";
-        fill.style.background = `linear-gradient(180deg, rgba(56,163,193,${0.15 + waterLevel * 0.005}) 0%, rgba(30,100,140,${0.25 + waterLevel * 0.005}) 100%)`;
-
-        // Update remaining
-        const remain = Math.max(0, (waterLevel / 100) * GLASS_ML);
-        const numEl = $("remainNum");
-        numEl.innerHTML = remain.toFixed(0) + '<span class="unit">ml</span>';
-        numEl.className = remain <= 0 ? "num empty" : "num";
-
-        // Empty message
-        if (remain <= 0) {
-          $("emptyMsg").style.display = "block";
-          $("emptyCount").textContent = `― and this was just ${promptCount} question${promptCount !== 1 ? "s" : ""}.`;
-        }
-
-        // Context stats
-        $("contextStats").style.display = "block";
-        $("statWater").textContent = `≈ ${totalWater >= 1000 ? (totalWater / 1000).toFixed(2) + "L" : totalWater.toFixed(1) + "ml"} consumed`;
-        $("statEnergy").textContent = `≈ ${totalEnergy.toFixed(2)} Wh electricity`;
-        $("statCO2").textContent = `≈ ${totalCO2.toFixed(2)}g CO₂`;
-
-        // Add receipt item
-        const truncated = text.slice(0, 40) + (text.length > 40 ? "..." : "");
-        if (promptCount === 1) {
-          $("receiptItems").innerHTML = "";
-          $("colHeaders").style.display = "flex";
-        }
-
-        const itemDiv = document.createElement("div");
-        itemDiv.className = "receipt-item";
-        itemDiv.innerHTML = `
-          <div class="row">
-            <div style="flex:1;padding-right:8px">
-              <div class="prompt-text">#${promptCount} "${truncated}"</div>
-              <div class="char-info">${chars} chars in → ${responseChars} chars out</div>
-            </div>
-            <div class="water-val">${w.toFixed(1)}ml</div>
-            <div class="energy-val">${e.toFixed(1)}Wh</div>
-          </div>`;
-        $("receiptItems").appendChild(itemDiv);
-
-        // Update totals
-        $("totalsSection").style.display = "block";
-        $("totalLabel").textContent = `TOTAL (${promptCount} prompt${promptCount !== 1 ? "s" : ""})`;
-        $("totalWater").textContent = totalWater.toFixed(1) + "ml";
-        $("totalEnergy").textContent = totalEnergy.toFixed(2) + " Wh";
-        $("totalCO2").textContent = totalCO2.toFixed(2) + "g";
-
-        // Scroll receipt
-        itemDiv.scrollIntoView({ behavior: "smooth", block: "nearest" });
-
-        // Reset
-        input.value = "";
-        $("estimate").textContent = "";
-        isProcessing = false;
-        sendBtn.textContent = "Send → Pay Water";
-        sendBtn.disabled = true;
-        input.focus();
-      }, 1200);
+    function generateCracks(intensity){
+      const o=$("crackOverlay");o.style.opacity=1;
+      for(let i=0;i<Math.floor(intensity*10);i++){
+        const c=document.createElement("div");c.className="crack-line";
+        const x=Math.random()*100,y=Math.random()*100,a=Math.random()*360;
+        const len=40+Math.random()*120*intensity,w=1+Math.random()*2*intensity;
+        c.style.cssText=`left:${x}%;top:${y}%;width:${len}px;height:${w}px;transform:rotate(${a}deg);opacity:${0.2+intensity*0.4};background:rgba(${60+intensity*60},${40+intensity*20},20,${0.05+intensity*0.07})`;
+        o.appendChild(c);
+      }
     }
-
-    // Init water fill
-    $("waterFill").style.height = "100%";
-    $("waterFill").style.background = "linear-gradient(180deg, rgba(56,163,193,0.65) 0%, rgba(30,100,140,0.75) 100%)";
+    function addDust(n){
+      for(let i=0;i<n;i++){
+        const d=document.createElement("div");d.className="dust-particle";
+        d.style.left=Math.random()*100+"%";d.style.top=Math.random()*100+"%";
+        d.style.opacity=Math.random()*0.3;
+        const s=1+Math.random()*2;d.style.width=s+"px";d.style.height=s+"px";
+        document.body.appendChild(d);
+      }
+    }
+    function updateEnvironment(level){
+      const dry=Math.max(0,1-level/100);
+      $("dryTop").style.opacity=dry;$("dryBottom").style.opacity=dry;
+      $("dryLeft").style.opacity=dry;$("dryRight").style.opacity=dry;
+      const r=Math.round(10+dry*18),g=Math.round(10+dry*10),b=Math.round(10-dry*6);
+      document.body.style.backgroundColor=`rgb(${r},${g},${b})`;
+      if(level<70&&lastCrackLevel>=70){generateCracks(0.2);addDust(2)}
+      if(level<50&&lastCrackLevel>=50){generateCracks(0.4);addDust(4)}
+      if(level<30&&lastCrackLevel>=30){generateCracks(0.6);addDust(6)}
+      if(level<15&&lastCrackLevel>=15){generateCracks(0.8);addDust(8)}
+      if(level<=0&&lastCrackLevel>0){generateCracks(1.0);addDust(12)}
+      lastCrackLevel=level;
+    }
+    function lockInput(){
+      isLocked=true;input.disabled=true;input.placeholder="";input.value="";
+      sendBtn.disabled=true;$("lockedOverlay").classList.add("active");$("estimate").textContent="";
+    }
+    function submitPrompt(){
+      const text=input.value.trim();
+      if(!text||isProcessing||isLocked)return;
+      isProcessing=true;sendBtn.disabled=true;sendBtn.textContent="...";
+      const chars=text.length,mult=3+Math.random()*4,rc=Math.floor(chars*mult);
+      const w=(chars+rc)*WATER_PER_CHAR,e=(chars+rc)*ENERGY_PER_CHAR,c=(chars+rc)*CO2_PER_CHAR;
+      const drip=$("dripEl");drip.style.display="block";drip.style.animation="none";
+      drip.offsetHeight;drip.style.animation="drip 1s ease-in forwards";
+      setTimeout(()=>{
+        drip.style.display="none";
+        promptCount++;totalWater+=w;totalEnergy+=e;totalCO2+=c;
+        waterLevel=Math.max(0,100-(totalWater/GLASS_ML)*100);
+        const fill=$("waterFill");fill.style.height=waterLevel+"%";
+        let tR,tG,tB,tA,bR,bG,bB,bA;
+        if(waterLevel>60){const t=(waterLevel-60)/40;tR=56;tG=163;tB=193;tA=.15+t*.5;bR=30;bG=100;bB=140;bA=.25+t*.5}
+        else if(waterLevel>30){const t=(waterLevel-30)/30;tR=Math.round(56+(1-t)*140);tG=Math.round(163-(1-t)*100);tB=Math.round(193-(1-t)*150);tA=.5;bR=Math.round(30+(1-t)*120);bG=Math.round(100-(1-t)*50);bB=Math.round(140-(1-t)*110);bA=.6}
+        else{const t=waterLevel/30;tR=Math.round(196+(1-t)*40);tG=Math.round(63-(1-t)*30);tB=Math.round(43-(1-t)*20);tA=.6;bR=Math.round(150+(1-t)*50);bG=Math.round(50-(1-t)*30);bB=Math.round(30-(1-t)*15);bA=.75}
+        fill.style.background=`linear-gradient(180deg,rgba(${tR},${tG},${tB},${tA}) 0%,rgba(${bR},${bG},${bB},${bA}) 100%)`;
+        const remain=Math.max(0,(waterLevel/100)*GLASS_ML);
+        const numEl=$("remainNum");numEl.innerHTML=remain.toFixed(0)+'<span class="unit">ml</span>';
+        if(remain<=0)numEl.style.color="#884";
+        else if(waterLevel>60)numEl.style.color="rgba(56,163,193,0.8)";
+        else if(waterLevel>30)numEl.style.color="rgba(180,130,50,0.8)";
+        else numEl.style.color="rgba(196,63,43,0.8)";
+        updateEnvironment(waterLevel);
+        if(remain<=0){$("emptyMsg").style.display="block";$("emptyCount").textContent=`${promptCount} queries this cycle.`;setTimeout(lockInput,800)}
+        $("contextStats").style.display="block";
+        $("statWater").textContent=totalWater.toFixed(1)+"ml used";
+        $("statEnergy").textContent=totalEnergy.toFixed(2)+" Wh";
+        $("statCO2").textContent=totalCO2.toFixed(2)+"g CO₂";
+        const trunc=text.slice(0,35)+(text.length>35?"…":"");
+        if(promptCount===1){$("receiptItems").innerHTML="";$("colHeaders").style.display="flex"}
+        const item=document.createElement("div");item.className="receipt-item";
+        item.innerHTML=`<div class="row"><div style="flex:1;padding-right:8px"><div class="prompt-text">#${String(promptCount).padStart(3,"0")} "${trunc}"</div><div class="char-info">${chars} → ${rc} tokens</div></div><div class="water-val">${w.toFixed(1)}ml</div><div class="energy-val">${e.toFixed(1)}</div></div>`;
+        $("receiptItems").appendChild(item);
+        $("totalsSection").style.display="block";
+        $("totalLabel").textContent=`TOTAL (${promptCount} quer${promptCount!==1?"ies":"y"})`;
+        $("totalWater").textContent=totalWater.toFixed(1)+"ml";
+        $("totalEnergy").textContent=totalEnergy.toFixed(2)+" Wh";
+        $("totalCO2").textContent=totalCO2.toFixed(2)+"g";
+        $("totalRemaining").textContent=remain.toFixed(1)+"ml";
+        item.scrollIntoView({behavior:"smooth",block:"nearest"});
+        input.value="";$("estimate").textContent="";isProcessing=false;
+        sendBtn.textContent="Send";sendBtn.disabled=true;input.focus();
+      },1200);
+    }
+    $("waterFill").style.height="100%";
+    $("waterFill").style.background="linear-gradient(180deg,rgba(56,163,193,0.65) 0%,rgba(30,100,140,0.75) 100%)";
   </script>
 </body>
 </html>
